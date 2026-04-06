@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coding AI Agent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            width: 100%;
+            max-width: 700px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            color: #555;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 14px;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-submit {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .btn-reset {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-reset:hover:not(:disabled) {
+            background: #e0e0e0;
+        }
+
+        .result-section {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .result-title {
+            color: #333;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .project-name {
+            background: #f0f0f0;
+            color: #666;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .result-box {
+            background: #f8f8f8;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+            line-height: 1.6;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .error-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            border-radius: 8px;
+            color: #856404;
+            font-size: 14px;
+        }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-weight: 500;
+            padding: 20px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f0f0f0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .whitespace-pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            textarea {
+                min-height: 150px;
+            }
+
+            button {
+                padding: 10px 15px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Coding AI Agent</h1>
+        <p class="subtitle">자유롭게 코딩 작업을 요청하세요</p>
+
+        <div class="form-group">
+            <label for="taskInput">작업 요청</label>
+            <textarea id="taskInput" placeholder="예: Python 파일에서 JSON 파싱 함수를 작성해줘"></textarea>
+        </div>
+
+        <div class="button-group">
+            <button class="btn-submit" id="submitBtn">입력</button>
+            <button class="btn-reset" id="resetBtn">초기화</button>
+        </div>
+
+        <div class="result-section" id="resultSection">
+            <div class="result-header">
+                <span class="result-title">결과</span>
+                <span class="project-name" id="projectName"></span>
+            </div>
+            <div class="result-box" id="resultBox"></div>
+        </div>
+    </div>
+
+    <script>
+        const taskInput = document.getElementById('taskInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const resultSection = document.getElementById('resultSection');
+        const resultBox = document.getElementById('resultBox');
+        const projectName = document.getElementById('projectName');
+
+        submitBtn.addEventListener('click', async () => {
+            const task = taskInput.value.trim();
+
+            if (!task) {
+                alert('작업을 입력해주세요');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            resultBox.innerHTML = '<div class="loading"><span class="spinner"></span>처리 중...</div>';
+            resultSection.classList.add('show');
+
+            try {
+                const response = await fetch('/api/execute', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ task: task }),
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    resultBox.innerHTML = `<div class="whitespace-pre">${escapeHtml(data.output)}</div>`;
+                    projectName.textContent = `프로젝트: ${data.project_name}`;
+                } else {
+                    resultBox.innerHTML = `<div class="error-box">오류: ${escapeHtml(data.error)}</div>`;
+                    projectName.textContent = '';
+                }
+            } catch (error) {
+                resultBox.innerHTML = `<div class="error-box">오류: ${escapeHtml(error.message)}</div>`;
+                projectName.textContent = '';
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            taskInput.value = '';
+            resultSection.classList.remove('show');
+            resultBox.innerHTML = '';
+            projectName.textContent = '';
+            taskInput.focus();
+        });
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;',
+            };
+            return text.replace(/[&<>"']/g, (m) => map[m]);
+        }
+
+        // Enter 키로 제출 (Ctrl/Cmd + Enter)
+        taskInput.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                submitBtn.click();
+            }
+        });
+
+        // 페이지 로드 시 포커스
+        window.addEventListener('load', () => {
+            taskInput.focus();
+        });
+    </script>
+</body>
+</html>

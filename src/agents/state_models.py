@@ -1,11 +1,14 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Annotated, Dict, List
+import uuid
+
+from langgraph.graph import add_messages
 
 
 @dataclass
 class WorkspaceState:
-    messages: List[Dict[str, Any]] = field(default_factory=list)
+    messages: Annotated[list, add_messages] = field(default_factory=list)
     current_workspace_state: Dict[str, Any] = field(default_factory=dict)
     error_logs: List[str] = field(default_factory=list)
 
@@ -15,7 +18,7 @@ class WorkspaceState:
     def add_error(self, message: str) -> None:
         self.error_logs.append(message)
 
-    def snapshot(self, root_dir: str = "/projects") -> Dict[str, Any]:
+    def project_store(self, root_dir: str = "projects") -> Dict[str, Any]:
         self.current_workspace_state = self._filesystem_snapshot(root_dir)
         return self.current_workspace_state
 
