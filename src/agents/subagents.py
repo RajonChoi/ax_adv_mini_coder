@@ -91,7 +91,6 @@ def _create_planner_agent() -> Any:
             backend=backend_factory,
             memory=["/memory/PLANNER.md"],
             name="coder-planner",
-            max_iterations=3,
             debug=True,
         )
     except ImportError as exc:
@@ -123,7 +122,6 @@ def _create_coder_agent() -> Any:
             backend=backend_factory,
             memory=["/memory/CODER.md"],
             name="coder-implementer",
-            max_iterations=3,
             debug=True,
         )
     except ImportError as exc:
@@ -155,7 +153,6 @@ def _create_reviewer_agent() -> Any:
             backend=backend_factory,
             memory=["/memory/REVIEWER.md"],
             name="coder-reviewer",
-            max_iterations=3,
             debug=True,
         )
     except ImportError as exc:

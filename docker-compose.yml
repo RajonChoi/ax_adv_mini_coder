@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL 17 데이터베이스 (Langfuse용)
+  db:
+    image: postgres:17
+    container_name: jrue-coder-db
+    restart: always
+    environment:
+      - POSTGRES_USER=langfuse
+      - POSTGRES_PASSWORD=langfuse
+      - POSTGRES_DB=langfuse
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # 2. Langfuse 서버 (모니터링 및 추적)
+  langfuse:
+    image: langfuse/langfuse:latest
+    container_name: jrue-coder-langfuse
+    depends_on:
+      - db
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://langfuse:langfuse@db:5432/langfuse
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=mysecret_key_change_me
+      - SALT=mysalt_key_change_me
+      - TELEMETRY_ENABLED=false
+
+  # 3. Web App (jrue-coder)
+  jrue-coder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jrue-coder-app
+    depends_on:
+      - langfuse
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+      - ./projects:/projects
+    environment:
+      # .env 파일에서 가져오되, 없으면 빈 값
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
+      # Langfuse 컨테이너를 가리키도록 설정
+      - LANGFUSE_BASE_URL=http://langfuse:3000
+      - CODING_AGENT_PROJECT_ROOT=/projects
+
+volumes:
+  postgres_data:

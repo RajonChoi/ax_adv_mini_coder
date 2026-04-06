@@ -47,7 +47,6 @@ def create_coding_ai_agent() -> Any:
             backend=backend_factory,
             subagents=cast("list[Any]", get_all_subagents()),
             memory=["/memory/AGENTS.md"],
-            max_iterations=3,
             name="coding-ai-agent",
             debug=True,
         )
@@ -86,3 +85,37 @@ def run_agent_task(requirement: str) -> Any:
         "output": output,
         "state": workspace_state,
     }
+
+
+def stream_agent_task(requirement: str) -> Any:
+    workspace_state = WorkspaceState()
+    workspace_state.add_message("user", requirement)
+
+    project_root = os.getenv("CODING_AGENT_PROJECT_ROOT", "projects")
+    workspace_state.project_store(root_dir=project_root)
+
+    agent = create_coding_ai_agent()
+
+    state_dict = {
+        "messages": workspace_state.messages,
+        "input": requirement,
+        "current_workspace_state": workspace_state.current_workspace_state,
+        "error_logs": workspace_state.error_logs,
+    }
+
+    yield {"type": "start", "project_name": workspace_state.project_name}
+
+    for event in agent.stream(state_dict, {"recursion_limit": 3}):
+        for node_name, state_update in event.items():
+            msg = f"Completed node: {node_name}"
+            if "messages" in state_update and state_update["messages"]:
+                last_msg = state_update["messages"][-1]
+                if hasattr(last_msg, "content"):
+                    msg = last_msg.content
+                elif isinstance(last_msg, dict) and "content" in last_msg:
+                    msg = last_msg["content"]
+                else:
+                    msg = str(last_msg)
+            yield {"type": "node", "node_name": node_name, "content": msg}
+
+    yield {"type": "end"}

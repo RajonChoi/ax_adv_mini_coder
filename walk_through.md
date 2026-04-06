@@ -44,5 +44,13 @@
 
 - Features:
   - Max upload size: 16MB
-  - Full error handling and user feedback
   - Localhost:5000 default configuration
+
+## Phase 5: Server-Side Streaming UI (No JS)
+- Modified `coding_agent.py` to add a generator `stream_agent_task(requirement)` utilizing `agent.stream()`.
+- Yields chunked output grouped by LangGraph Nodes (Node-by-Node progression).
+- Updated `web_app.py` to utilize Flask's native chunked response: `Response(generate_html_stream(task), mimetype='text/html')`.
+- Refactored `templates/index.html`:
+  - Removed all JavaScript / `fetch()` processing APIs.
+  - Replaced the interface with a standard HTML `<form action="/api/execute" method="POST">`.
+- Benefit: Live progression rendering inside the browser without involving client-side JS runtime.

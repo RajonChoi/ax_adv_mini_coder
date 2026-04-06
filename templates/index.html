@@ -234,101 +234,17 @@
         <h1>🤖 Coding AI Agent</h1>
         <p class="subtitle">자유롭게 코딩 작업을 요청하세요</p>
 
-        <div class="form-group">
-            <label for="taskInput">작업 요청</label>
-            <textarea id="taskInput" placeholder="예: Python 파일에서 JSON 파싱 함수를 작성해줘"></textarea>
-        </div>
-
-        <div class="button-group">
-            <button class="btn-submit" id="submitBtn">입력</button>
-            <button class="btn-reset" id="resetBtn">초기화</button>
-        </div>
-
-        <div class="result-section" id="resultSection">
-            <div class="result-header">
-                <span class="result-title">결과</span>
-                <span class="project-name" id="projectName"></span>
+        <form action="/api/execute" method="POST">
+            <div class="form-group">
+                <label for="taskInput">작업 요청</label>
+                <textarea id="taskInput" name="task" placeholder="예: Python 파일에서 JSON 파싱 함수를 작성해줘" required autofocus></textarea>
             </div>
-            <div class="result-box" id="resultBox"></div>
-        </div>
+
+            <div class="button-group">
+                <button type="submit" class="btn-submit" id="submitBtn">입력</button>
+                <button type="reset" class="btn-reset" id="resetBtn">초기화</button>
+            </div>
+        </form>
     </div>
-
-    <script>
-        const taskInput = document.getElementById('taskInput');
-        const submitBtn = document.getElementById('submitBtn');
-        const resetBtn = document.getElementById('resetBtn');
-        const resultSection = document.getElementById('resultSection');
-        const resultBox = document.getElementById('resultBox');
-        const projectName = document.getElementById('projectName');
-
-        submitBtn.addEventListener('click', async () => {
-            const task = taskInput.value.trim();
-
-            if (!task) {
-                alert('작업을 입력해주세요');
-                return;
-            }
-
-            submitBtn.disabled = true;
-            resultBox.innerHTML = '<div class="loading"><span class="spinner"></span>처리 중...</div>';
-            resultSection.classList.add('show');
-
-            try {
-                const response = await fetch('/api/execute', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ task: task }),
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    resultBox.innerHTML = `<div class="whitespace-pre">${escapeHtml(data.output)}</div>`;
-                    projectName.textContent = `프로젝트: ${data.project_name}`;
-                } else {
-                    resultBox.innerHTML = `<div class="error-box">오류: ${escapeHtml(data.error)}</div>`;
-                    projectName.textContent = '';
-                }
-            } catch (error) {
-                resultBox.innerHTML = `<div class="error-box">오류: ${escapeHtml(error.message)}</div>`;
-                projectName.textContent = '';
-            } finally {
-                submitBtn.disabled = false;
-            }
-        });
-
-        resetBtn.addEventListener('click', () => {
-            taskInput.value = '';
-            resultSection.classList.remove('show');
-            resultBox.innerHTML = '';
-            projectName.textContent = '';
-            taskInput.focus();
-        });
-
-        function escapeHtml(text) {
-            const map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;',
-            };
-            return text.replace(/[&<>"']/g, (m) => map[m]);
-        }
-
-        // Enter 키로 제출 (Ctrl/Cmd + Enter)
-        taskInput.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                submitBtn.click();
-            }
-        });
-
-        // 페이지 로드 시 포커스
-        window.addEventListener('load', () => {
-            taskInput.focus();
-        });
-    </script>
 </body>
 </html>
