@@ -8,8 +8,6 @@ of the coding workflow: planning, implementation, and review.
 
 from typing import Any, List
 
-from deepagents.graph import create_deep_agent
-
 from .config import (
     backend_factory,
     ensure_openrouter_config,
@@ -35,35 +33,39 @@ When creating a plan:
 Format your response as a structured plan with clear sections for each file."""
 
 CODER_SYSTEM_PROMPT = """You are a Coding Agent (coder-implementer).
-Your responsibility is to implement code changes based on the provided plan.
+Your responsibility is to implement the plan by making precise, minimal diffs.
+
+Rules:
+- Read files before editing.
+- Mimic existing style, naming, and patterns.
+- Prefer editing existing files over creating new ones.
+- Only make changes that are directly requested — don't add features.
+- Do not add comments unless asked.
+- Keep responses concise; don't add preamble.
 
 When implementing:
-1. Write clean, well-documented Python code
-2. Follow PEP 8 style guidelines
-3. Add comprehensive error handling with try-except blocks
-4. Include type hints for function arguments and return values
-5. Add docstrings to all functions and classes
-6. Use meaningful variable names
-7. Create or modify files according to the plan
+1. Apply file-by-file changes exactly as planned.
+2. If something is ambiguous or blocked, stop and request clarification.
+3. After changes, run focused tests/commands (if available) and fix one issue at a time.
 
-Ensure all code is production-ready and thoroughly tested."""
+Output: summarize what changed per file and any commands run."""
 
 REVIEWER_SYSTEM_PROMPT = """You are a Code Review Agent (coder-reviewer).
-Your responsibility is to verify implementation quality and requirement compliance.
+Your responsibility is to verify correctness, scope, and project conventions.
 
-When reviewing:
-1. Check for Python syntax errors
-2. Verify all requirements are met
-3. Inspect code quality and best practices
-4. Identify potential bugs or edge cases
-5. Confirm all specified files were created/modified
-6. Check error handling is comprehensive
-7. Validate type hints and documentation
+Review checklist:
+- Requirements satisfied (no missing acceptance criteria)
+- Changes are minimal and directly requested (no scope creep)
+- Consistent style and naming with the existing codebase
+- No secrets or .env modifications
+- Tests/linters (if present) pass
+- No unsafe filesystem/shell behavior outside allowed workspace
 
-Provide a detailed review report with:
-- ✅ What passed
-- ⚠️ Warnings or suggestions
-- ❌ Critical issues if any"""
+Output:
+- Pass/Fail
+- Issues (must-fix)
+- Suggestions (nice-to-have)
+- Files reviewed + any commands run"""
 
 
 # ============================================================================
@@ -71,7 +73,7 @@ Provide a detailed review report with:
 # ============================================================================
 
 
-def _create_planner_agent() -> Any:
+def create_planner_agent() -> dict:
     """Create and return a compiled planner subagent.
 
     The planner subagent is responsible for analyzing user requirements and
@@ -84,25 +86,19 @@ def _create_planner_agent() -> Any:
     ensure_openrouter_config()
     setup_langfuse()
 
-    try:
-        agent = create_deep_agent(
-            model=model_name(),
-            system_prompt=PLANNER_SYSTEM_PROMPT,
-            backend=backend_factory,
-            memory=["/memory/PLANNER.md"],
-            name="coder-planner",
-            debug=True,
-        )
-    except ImportError as exc:
-        raise RuntimeError(
-            "Failed to initialize planner agent. Ensure openrouter support is installed: "
-            "pip install langchain-openrouter"
-        ) from exc
+    agent = {
+        "model": model_name(),
+        "system_prompt": PLANNER_SYSTEM_PROMPT,
+        "backend": backend_factory,
+        "memory": ["/memory/PLANNER.md"],
+        "name": "coder-planner",
+        "description": "Planning agent that creates detailed execution plans for coding tasks",
+    }
 
     return agent
 
 
-def _create_coder_agent() -> Any:
+def create_coder_agent() -> dict:
     """Create and return a compiled coder subagent.
 
     The coder subagent is responsible for implementing the plan created by
@@ -115,25 +111,19 @@ def _create_coder_agent() -> Any:
     ensure_openrouter_config()
     setup_langfuse()
 
-    try:
-        agent = create_deep_agent(
-            model=model_name(),
-            system_prompt=CODER_SYSTEM_PROMPT,
-            backend=backend_factory,
-            memory=["/memory/CODER.md"],
-            name="coder-implementer",
-            debug=True,
-        )
-    except ImportError as exc:
-        raise RuntimeError(
-            "Failed to initialize coder agent. Ensure openrouter support is installed: "
-            "pip install langchain-openrouter"
-        ) from exc
+    agent = {
+        "model": model_name(),
+        "system_prompt": CODER_SYSTEM_PROMPT,
+        "backend": backend_factory,
+        "memory": ["/memory/CODER.md"],
+        "name": "coder-implementer",
+        "description": "Coding agent that implements the plan by writing and modifying files",
+    }
 
     return agent
 
 
-def _create_reviewer_agent() -> Any:
+def create_reviewer_agent() -> dict:
     """Create and return a compiled reviewer subagent.
 
     The reviewer subagent is responsible for quality assurance and verification.
@@ -143,28 +133,20 @@ def _create_reviewer_agent() -> Any:
     Returns:
         Any: Compiled subagent instance ready for use in the main agent.
     """
-    ensure_openrouter_config()
-    setup_langfuse()
 
-    try:
-        agent = create_deep_agent(
-            model=model_name(),
-            system_prompt=REVIEWER_SYSTEM_PROMPT,
-            backend=backend_factory,
-            memory=["/memory/REVIEWER.md"],
-            name="coder-reviewer",
-            debug=True,
-        )
-    except ImportError as exc:
-        raise RuntimeError(
-            "Failed to initialize reviewer agent. Ensure openrouter support is installed: "
-            "pip install langchain-openrouter"
-        ) from exc
+    agent = {
+        "model": model_name(),
+        "system_prompt": REVIEWER_SYSTEM_PROMPT,
+        "backend": backend_factory,
+        "memory": ["/memory/REVIEWER.md"],
+        "name": "coder-reviewer",
+        "description": "Review agent that verifies code quality and requirement compliance",
+    }
 
     return agent
 
 
-def get_all_subagents() -> List[Any]:
+def get_all_subagents() -> List[dict]:
     """Generate list of compiled subagent instances.
 
     This function orchestrates the creation of all subagents in the proper
@@ -180,7 +162,7 @@ def get_all_subagents() -> List[Any]:
         List[Any]: List of compiled subagent instances.
     """
     return [
-        _create_planner_agent(),
-        _create_coder_agent(),
-        _create_reviewer_agent(),
+        create_planner_agent(),
+        create_coder_agent(),
+        create_reviewer_agent(),
     ]

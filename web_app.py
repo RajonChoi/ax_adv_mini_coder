@@ -58,6 +58,7 @@ def generate_html_stream(task):
 </html>
 """
 
+## OPENROUTER_BASE_URL="https://openrouter.ai/api/v1"
 
 @app.route("/")
 def index():

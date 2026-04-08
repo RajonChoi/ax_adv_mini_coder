@@ -7,7 +7,7 @@ from deepagents.graph import create_deep_agent
 from .config import (
     backend_factory,
     ensure_openrouter_config,
-    model_name,
+    model,
     setup_langfuse,
 )
 from .state_models import WorkspaceState
@@ -28,7 +28,7 @@ Use the workflow:
 3) Reviewer: verify syntax and requirement compliance.
 
 Constraints:
-- Use openrouter model from OPENROUTER_MODEL (default openrouter:gpt-4o-mini).
+- Use openrouter model from OPENROUTER_MODEL (default openrouter:gpt-5.4-mini).
 - Backend must be FilesystemBackend with root /projects, virtual_mode True.
 - Save code changes to /projects/{project-name}/.
 - Langfuse telemetry uses LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL.
@@ -42,11 +42,11 @@ def create_coding_ai_agent() -> Any:
 
     try:
         agent = create_deep_agent(
-            model=model_name(),
+            model=model(),
             system_prompt=SYSTEM_PROMPT,
             backend=backend_factory,
             subagents=cast("list[Any]", get_all_subagents()),
-            memory=["/memory/AGENTS.md"],
+            memory=["/memory/AGENTS.md", "/memory/personal.md", "/memory/project.md"],
             name="coding-ai-agent",
             debug=True,
         )
@@ -103,19 +103,12 @@ def stream_agent_task(requirement: str) -> Any:
         "error_logs": workspace_state.error_logs,
     }
 
-    yield {"type": "start", "project_name": workspace_state.project_name}
+    yield {"type": "start", "project_name": "coding-project"}
 
-    for event in agent.stream(state_dict, {"recursion_limit": 3}):
-        for node_name, state_update in event.items():
-            msg = f"Completed node: {node_name}"
-            if "messages" in state_update and state_update["messages"]:
-                last_msg = state_update["messages"][-1]
-                if hasattr(last_msg, "content"):
-                    msg = last_msg.content
-                elif isinstance(last_msg, dict) and "content" in last_msg:
-                    msg = last_msg["content"]
-                else:
-                    msg = str(last_msg)
-            yield {"type": "node", "node_name": node_name, "content": msg}
+    try:
+        output = agent.invoke(state_dict)
+        yield {"type": "node", "node_name": "final", "content": str(output)}
+    except Exception as e:
+        yield {"type": "node", "node_name": "error", "content": str(e)}
 
     yield {"type": "end"}

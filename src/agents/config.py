@@ -19,7 +19,18 @@ def model_name() -> str:
     Returns:
         str: Model identifier string for OpenRouter.
     """
-    return os.getenv("OPENROUTER_MODEL", "openrouter:qwen/qwen3.6-plus:free")
+    return os.getenv("OPENROUTER_MODEL", "openrouter:qwen/qwen3.6-plus")
+
+
+def model() -> Any:
+    """Get the configured LLM model instance with timeout and retries.
+
+    Returns:
+        BaseChatModel: Configured model instance.
+    """
+    from langchain.chat_models import init_chat_model
+
+    return init_chat_model(model_name(), timeout=120, max_retries=3)
 
 
 def ensure_openrouter_config() -> None:
