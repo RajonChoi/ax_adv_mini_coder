@@ -166,3 +166,70 @@ def get_all_subagents() -> List[dict]:
         create_coder_agent(),
         create_reviewer_agent(),
     ]
+
+
+# ============================================================================
+# Dynamic SubAgent Generation Tooling
+# ============================================================================
+
+def create_dynamic_subagent(name: str, description: str, system_prompt: str) -> dict:
+    """Dynamically generate a SubAgent specification.
+    
+    This allows the orchestrator to build custom roles on-the-fly.
+    
+    Args:
+        name: The subagent's identifier
+        description: Brief description of the subagent's role
+        system_prompt: Detailed instructions for the task
+        
+    Returns:
+        dict: A compiled agent specification dictionary
+    """
+    ensure_openrouter_config()
+    setup_langfuse()
+    
+    agent = {
+        "model": model_name(),
+        "system_prompt": system_prompt,
+        "backend": backend_factory,
+        "memory": [],
+        "name": name,
+        "description": description,
+    }
+    
+    return agent
+
+
+def call_dynamic_subagent(name: str, description: str, system_prompt: str, task: str) -> str:
+    """
+    Instantiate a new SubAgent dynamically and immediately delegate a task to it.
+    Use this tool when you need a specific type of worker (e.g., 'DataAnalyst') that isn't provided.
+    
+    Args:
+        name: e.g., 'coder-data-analyst'
+        description: e.g., 'Analyzes local CSV files'
+        system_prompt: Detailed role prompt for the agent
+        task: The specific goal for the dynamic agent to achieve
+    """
+    from deepagents.graph import create_deep_agent
+    from .state_models import WorkspaceState
+    
+    spec = create_dynamic_subagent(name, description, system_prompt)
+    agent = create_deep_agent(spec)
+    
+    ws = WorkspaceState()
+    ws.add_message("user", task)
+    
+    state_dict = {
+        "messages": ws.messages,
+        "input": task,
+        "current_workspace_state": ws.current_workspace_state,
+        "error_logs": ws.error_logs,
+    }
+    
+    try:
+        output = agent.invoke(state_dict)
+        return f"Dynamic SubAgent [{name}] Result:\n{output}"
+    except Exception as e:
+        return f"Dynamic SubAgent [{name}] Failed:\n{str(e)}"
+

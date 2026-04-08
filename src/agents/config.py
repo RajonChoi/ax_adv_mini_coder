@@ -19,7 +19,7 @@ def model_name() -> str:
     Returns:
         str: Model identifier string for OpenRouter.
     """
-    return os.getenv("OPENROUTER_MODEL", "openrouter:qwen/qwen3.6-plus")
+    return os.getenv("OPENROUTER_MODEL", "openrouter:z-ai/glm-5.1")
 
 
 def model() -> Any:
@@ -30,7 +30,7 @@ def model() -> Any:
     """
     from langchain.chat_models import init_chat_model
 
-    return init_chat_model(model_name(), timeout=120, max_retries=3)
+    return init_chat_model(model_name())
 
 
 def ensure_openrouter_config() -> None:
