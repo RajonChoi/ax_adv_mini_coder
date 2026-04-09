@@ -47,6 +47,7 @@
 </head>
 <body>
     <div class="app-container">
+        <!-- Left Pane -->
         <div class="left-pane">
             <div class="header">🤖 Coding AI Agent</div>
             <div class="chat-history" id="chatHistoryBox">
@@ -58,6 +59,7 @@
             </div>
         </div>
 
+        <!-- Right Pane -->
         <div class="right-pane">
             <div class="logs-header">
                 <span style="display: flex; align-items: center; gap: 8px;">
@@ -157,17 +159,15 @@
                 // 작업 완료 후 처리
                 chatHistory.push({ role: 'user', content: task });
 
-                // 응답 타입에 따른 분기 (요청 사항 반영)
+                // response_type이 'simple'이면 로그창을 비우고 바로 메시지 표시
                 if (responseType === 'simple') {
-                    // simple: 로그창을 비우고 좌측 채팅창에 답변 표시
-                    logsContainer.innerHTML = '<div style="color: #666; font-style: italic;">간단한 응답이 처리되었습니다.</div>';
+                    logsContainer.innerHTML = '<div style="color: #666; font-style: italic;">간단한 응답입니다.</div>';
                     chatHistory.push({ role: 'assistant', content: finalResponse });
                     appendMessage('assistant', finalResponse);
                 } else {
-                    // complex: 우측 로그창은 그대로 두고, 좌측 채팅창에 '작업이 완료되었습니다.' 출력
-                    const doneMessage = "작업이 완료되었습니다.";
-                    chatHistory.push({ role: 'assistant', content: doneMessage });
-                    appendMessage('assistant', doneMessage);
+                    // complex 이면 백엔드에서 보낸 메시지 사용
+                    chatHistory.push({ role: 'assistant', content: finalResponse });
+                    appendMessage('assistant', '☑️ 작업이 완료되었습니다. \n 📂 projects/ 폴더 아래를 확인해보세요.');
                 }
 
             } catch (error) {

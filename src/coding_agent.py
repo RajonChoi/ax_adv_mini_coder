@@ -1,9 +1,11 @@
+from re import sub
 from typing import Any, cast
 import os
 import json
 import logging
 from dotenv import load_dotenv
-import langfuse
+from langfuse import observe, get_client
+
 
 load_dotenv()
 
@@ -21,7 +23,7 @@ from .config import (
 )
 from .state_models import WorkspaceState
 from .subagents import get_all_subagents, call_dynamic_subagent
-from .memory_pg import MemoryManager, save_user_characteristic
+from .memory_pg import MemoryManager, delete_user_characteristic, save_user_characteristic
 
 from langfuse.langchain import CallbackHandler
 
@@ -63,6 +65,10 @@ SYSTEM_PROMPT = """
 
 
 def create_coding_ai_agent() -> Any:
+    langfuse_handler = CallbackHandler()
+    main_llm = get_llm("glm")
+    main_llm.callbacks = [langfuse_handler]
+
     ensure_openrouter_config()
 
     # Fetch user profile from PostgreSQL DB
@@ -83,11 +89,10 @@ def create_coding_ai_agent() -> Any:
             backend=backend_factory,
             subagents=cast("list[Any]", get_all_subagents()),
             memory=["/memory/AGENTS.md", "/memory/personal.md", "/memory/project.md"],
-            tools=[save_user_characteristic, call_dynamic_subagent],
+            tools=[save_user_characteristic, delete_user_characteristic, call_dynamic_subagent],
             name="coding-ai-agent",
             debug=True,
         )
-        # Apply Langfuse callback to the agent
 
     except ImportError as exc:
         raise RuntimeError(
@@ -98,6 +103,7 @@ def create_coding_ai_agent() -> Any:
     return agent
 
 
+@observe(name="Coding-Agent-Workflow")
 def run_agent_task(requirement: str) -> Any:
     workspace_state = WorkspaceState()
     workspace_state.add_message("user", requirement)
@@ -116,10 +122,13 @@ def run_agent_task(requirement: str) -> Any:
         "current_workspace_state": workspace_state.current_workspace_state,
         "error_logs": workspace_state.error_logs,
     }
-    langfuse_handler = CallbackHandler()
-    output = agent.invoke(state_dict, config={"callbacks": [langfuse_handler]})
+
+    output = agent.invoke(state_dict)
 
     workspace_state.add_message("assistant", str(output))
+
+    # langfuse flush
+    get_client().flush()
 
     return {
         "output": output,
@@ -154,12 +163,17 @@ def stream_agent_task(requirement: str, history: list = []) -> Any:
 
     try:
         logger.info("Starting agent stream execution...")
+        nodes_executed = []
+        final_response = None
+        all_messages = []
+
         # Check if the agent supports streaming (LangGraph CompiledGraph)
         if hasattr(agent, "stream"):
             logger.info("Agent supports streaming, calling agent.stream()")
             for event in agent.stream(state_dict):
                 logger.debug(f"Received stream event from agent: {event.keys()}")
                 for node_name, values in event.items():
+                    nodes_executed.append(node_name)
                     logger.info(f"Node completed: {node_name}")
                     content_str = ""
                     # Extract readable content from LangGraph state updates
@@ -170,6 +184,7 @@ def stream_agent_task(requirement: str, history: list = []) -> Any:
                             messages = messages.value
 
                         if messages and isinstance(messages, list):
+                            all_messages = messages  # 모든 메시지 저장
                             last_msg = messages[-1]
                             if hasattr(last_msg, "content"):
                                 content_str = last_msg.content
@@ -196,13 +211,56 @@ def stream_agent_task(requirement: str, history: list = []) -> Any:
                         "node_name": node_name,
                         "content": content_str.strip(),
                     }
+
+            # 스트림 완료 후 마지막 메시지 추출
+            if all_messages:
+                last_message = all_messages[-1]
+                if hasattr(last_message, "content"):
+                    final_response = last_message.content
+                elif isinstance(last_message, dict) and "content" in last_message:
+                    final_response = last_message["content"]
+                else:
+                    final_response = str(last_message)
         else:
             logger.info("Agent does not support streaming, falling back to invoke()")
             output = agent.invoke(state_dict)
+            final_response = str(output)
+            nodes_executed = ["invoke"]
             yield {"type": "node", "node_name": "final", "content": str(output)}
         logger.info("Agent execution completed successfully.")
     except Exception as e:
         logger.error(f"Error during agent execution: {e}", exc_info=True)
         yield {"type": "node", "node_name": "error", "content": str(e)}
 
-    yield {"type": "end"}
+    # Determine response type based on nodes executed
+    complex_nodes = {
+        "Planner",
+        "Coder",
+        "Reviewer",
+        "GenerateCoding",
+        "CodeModifier",
+        "planner",
+        "coder",
+        "reviewer",
+    }
+    nodes_str = str(nodes_executed)
+    logger.info(f"DEBUG: nodes_executed = {nodes_executed}")
+    logger.info(f"DEBUG: nodes_str = {nodes_str}")
+    is_complex = any(node in nodes_str for node in complex_nodes)
+    logger.info(f"DEBUG: is_complex = {is_complex}")
+
+    # Prepare final response message
+    if is_complex:
+        # 코딩 작업 완료시 메시지
+        response_message = (
+            "✅ 작업이 완료됐습니다.\n📂 projects/ 아래에 보관하였습니다."
+        )
+    else:
+        # 간단한 응답
+        response_message = final_response or "작업이 완료되었습니다."
+
+    yield {
+        "type": "end",
+        "response_type": "complex" if is_complex else "simple",
+        "final_response": response_message,
+    }
