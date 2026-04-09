@@ -45,3 +45,17 @@
 - Features:
   - Max upload size: 16MB
   - Localhost:5000 default configuration
+
+## Phase 5: Multi-turn UI and Stream Refactoring
+- **Codebase Restructure & Fixes**
+  - Resolved relative import and `NameError` issues in `src/coding_agent.py` and `src/subagents.py` by centralizing `_llm.py`.
+  - Replaced legacy `langchain-openrouter` dependency checks with `langchain_openai` in `src/config.py`.
+- **Multi-turn Agent Context Implementation**
+  - Upgraded `stream_agent_task` to accept a `history` argument, allowing the agent to continuously build upon previous `WorkspaceState` messages.
+- **Backend SSE (Server-Sent Events) Migration**
+  - Changed `/api/execute` endpoint in `web_app.py` to parse JSON payloads containing `task` and `history`.
+  - Refactored server output to use `mimetype="text/event-stream"`, yielding standard SSE JSON string formats instead of hardcoded HTML chunks.
+- **SPA Dual-pane UI Redesign (`templates/index.html`)**
+  - **Left Pane:** Dedicated section for preserving continuous chat history and prompt input.
+  - **Right Pane:** Console-like terminal for observing real-time Node execution logs and errors.
+  - Replaced blocking form-submit with JavaScript Fetch `ReadableStream`, handling raw SSE connections for a smooth, single-page application experience.

@@ -14,3 +14,4 @@ wheels/
 
 postgres_data/
 projects/
+test_or.py

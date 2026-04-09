@@ -1,8 +1,7 @@
-# Planner Memory
+# Planner Agent Long-term Memory
+이 파일은 Planner 에이전트 전용 장기 메모리 공간입니다.
+과거 프로젝트 계획(Plan)을 세울 때 직면했던 이슈, 권장사항, 템플릿, 그리고 작업 노하우가 기록됩니다.
 
-Knowledge specific to planning tasks.
-
-## Planning Tips
-- Break down complex tasks
-- Identify dependencies
-- Create actionable steps
+## Rules & Learnings
+- 유사한 작업(Task)이 있을 때 과거의 계획을 참고하여 발전된 계획을 수립합니다.
+- 새로운 프로젝트 발견 시 이곳의 과거 지식을 바탕으로 계획을 수립하세요.

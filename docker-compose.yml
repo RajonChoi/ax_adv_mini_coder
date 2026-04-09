@@ -91,7 +91,40 @@ services:
       - LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT=http://minio:9000
       - LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE=true
 
-  # 6. Web App (jrue-coder)
+  # 6. Langfuse Worker (비동기 데이터 및 S3 페이로드 처리 - V3 필수)
+  langfuse-worker:
+    image: langfuse/langfuse-worker:latest
+    container_name: jrue-coder-langfuse-worker
+    restart: always
+    depends_on:
+      - db
+      - clickhouse
+      - redis
+      - minio
+    environment:
+      - DATABASE_URL=postgresql://jrue_coder:jrue_coder@db:5432/jrue_coder
+      - SALT=mysalt_key_change_me
+      - ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000
+      - TELEMETRY_ENABLED=false
+      # Clickhouse 설정
+      - CLICKHOUSE_MIGRATION_URL=clickhouse://clickhouse:9000
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - CLICKHOUSE_USER=clickhouse
+      - CLICKHOUSE_PASSWORD=clickhouse
+      - CLICKHOUSE_CLUSTER_ENABLED=false
+      # Redis 설정
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_AUTH=myredissecret
+      # MinIO (S3) 설정
+      - LANGFUSE_S3_EVENT_UPLOAD_BUCKET=langfuse
+      - LANGFUSE_S3_EVENT_UPLOAD_REGION=auto
+      - LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID=minio
+      - LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY=miniosecret
+      - LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT=http://minio:9000
+      - LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE=true
+
+  # 7. Web App (jrue-coder)
   jrue-coder:
     build:
       context: .
@@ -99,6 +132,7 @@ services:
     container_name: jrue-coder-app
     depends_on:
       - langfuse
+      - langfuse-worker
     ports:
       - "5000:5000"
     volumes:
@@ -109,7 +143,6 @@ services:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
-      # Langfuse 컨테이너를 가리키도록 설정
       - LANGFUSE_BASE_URL=http://langfuse:3000
       - CODING_AGENT_PROJECT_ROOT=/projects
       - DATABASE_URL=postgresql://jrue_coder:jrue_coder@db:5432/jrue_coder

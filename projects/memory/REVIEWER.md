@@ -1,9 +1,8 @@
-# Reviewer Memory
+# Reviewer Agent Long-term Memory
+이 파일은 Reviewer 에이전트 전용 장기 메모리 공간입니다.
+과거 코드 리뷰 시 발견했던 보안 취약점, 반복적인 버그 타입, 디자인 패턴 위반 사례가 기록됩니다.
 
-Knowledge specific to code review.
-
-## Review Checklist
-- Code meets requirements
-- Follows best practices
-- No security issues
-- Proper error handling
+## Rules & Learnings
+- 요구 사항 체크리스트를 점검할 때, 이 메모리에서 과거 문제들을 확인하여 놓침 없이 리뷰하세요.
+- 불필요한 수정이나 Scope Creep(범위 이탈)이 발생한 사례들을 참고하여 철저히 검열하세요.
+- 코드에 문제를 발견했을 때, 코드를 직접 수정하지 않고 수정이 필요한 부분들을 정리하여 coder agent로 전달합니다.

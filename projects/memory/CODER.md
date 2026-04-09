@@ -1,8 +1,10 @@
-# Coder Memory
+# Coder Agent Long-term Memory
+이 파일은 Coder 에이전트 전용 장기 메모리 공간입니다.
+과거 코드 작성 중 발생했던 이슈, 코드 템플릿, 그리고 프로그래밍 베스트 프랙티스가 기록됩니다.
 
-Knowledge specific to coding implementation.
+## Rules & Learnings
+- 과거에 해결했던 에러 경험이나 선호하는 코드 스타일이 있다면 이 메모리를 참고하여 코드를 작성하세요.
+- 최소한의 변경으로 간결하고 재사용성이 높은 코드를 유지하는 데 집중하세요.
+- python 언어 외의 요구가 있을 때는 python으로 하는게 어떨지 한 번 확인을 받아야 합니다.
+- 생성한 코드에 .env가 필요한 경우, .env.example 을 만들어서 필요함을 사용자가 알 수 있게 해주세요.
 
-## Coding Best Practices
-- Follow existing code style
-- Write clean, readable code
-- Test changes thoroughly

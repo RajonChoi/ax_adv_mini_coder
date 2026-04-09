@@ -1,53 +1,69 @@
 from typing import Any, cast
 import os
-from pathlib import Path
 import json
 import logging
+from dotenv import load_dotenv
+import langfuse
+
+load_dotenv()
 
 # Configure basic logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 from deepagents.graph import create_deep_agent
-
+from ._llm import get_llm
 from .config import (
     backend_factory,
     ensure_openrouter_config,
-    model,
-    setup_langfuse,
 )
 from .state_models import WorkspaceState
 from .subagents import get_all_subagents, call_dynamic_subagent
 from .memory_pg import MemoryManager, save_user_characteristic
 
+from langfuse.langchain import CallbackHandler
 
 SYSTEM_PROMPT = """
-You are CODING AI AGENT (deepagents + filesystem + langfuse).
-Goal:
+# You are CODING AI AGENT (deepagents + filesystem + langfuse).
+## Goal:
 - Read requirement documents and generate code.
 - Refactor existing code.
 - Fix bugs based on error logs.
 - Automatically identify personal traits (location, hobbies, etc.) in user prompt and save them via `save_user_characteristic` tool.
 - Dynamically generate specialized SubAgents using `call_dynamic_subagent` if a custom role is needed (e.g. data-analysis, design, translation).
 
-Use the workflow:
-0) make project-name based on requirement.
-1) Planner: create file-by-file plan.
-2) Coder: modify or write code accordingly.
-3) Reviewer: verify syntax and requirement compliance.
+### Use Subagents for specialized tasks:
+- Planner: create file-by-file plan.
+- Coder: modify or write code accordingly.
+- Reviewer: verify syntax and requirement compliance.
 
-Constraints:
-- Use openrouter model from OPENROUTER_MODEL (default openrouter:gpt-5.4-mini).
+### Workflow:
+1. Analyze the requirement and current workspace state.
+2. Plan the necessary steps and files to modify or create.
+3. Make project-name based on requirement.
+4. Execute coding tasks, ensuring all changes are saved to /projects/{project-name}/.
+5. If errors occur, analyze error logs and fix the code iteratively.
+
+### Exceptions:
+- User send simple messages(under 20 characters), you can answer directly without subagents.
+- User can call subagent directly via `call_dynamic_subagent` tool if they want to delegate specific tasks to a specialized agent.
+- Also user can call subagents in your reasoning process, then you should run only that subagent to complete the specific task.
+
+### Constraints:
+- Use openrouter model from OPENROUTER_MODEL (default openrouter:GLM-5).
 - Backend must be FilesystemBackend with root /projects, virtual_mode True.
 - Save code changes to /projects/{project-name}/.
 - Langfuse telemetry uses LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL.
 - Recursion / retry limit 5.
+
+{date}
 """
 
 
 def create_coding_ai_agent() -> Any:
     ensure_openrouter_config()
-    setup_langfuse()
 
     # Fetch user profile from PostgreSQL DB
     manager = MemoryManager()
@@ -56,11 +72,13 @@ def create_coding_ai_agent() -> Any:
     # Inject memory context
     extended_prompt = SYSTEM_PROMPT
     if user_profile:
-        extended_prompt += "\n\nUser Profile & Characteristics:\n" + json.dumps(user_profile, indent=2)
+        extended_prompt += "\n\nUser Profile & Characteristics:\n" + json.dumps(
+            user_profile, indent=2
+        )
 
     try:
         agent = create_deep_agent(
-            model=model(),
+            model=get_llm("glm"),
             system_prompt=extended_prompt,
             backend=backend_factory,
             subagents=cast("list[Any]", get_all_subagents()),
@@ -69,6 +87,8 @@ def create_coding_ai_agent() -> Any:
             name="coding-ai-agent",
             debug=True,
         )
+        # Apply Langfuse callback to the agent
+
     except ImportError as exc:
         raise RuntimeError(
             "Failed to initialize model runtime. Ensure openrouter support is installed: "
@@ -96,7 +116,8 @@ def run_agent_task(requirement: str) -> Any:
         "current_workspace_state": workspace_state.current_workspace_state,
         "error_logs": workspace_state.error_logs,
     }
-    output = agent.invoke(state_dict)
+    langfuse_handler = CallbackHandler()
+    output = agent.invoke(state_dict, config={"callbacks": [langfuse_handler]})
 
     workspace_state.add_message("assistant", str(output))
 
@@ -106,8 +127,15 @@ def run_agent_task(requirement: str) -> Any:
     }
 
 
-def stream_agent_task(requirement: str) -> Any:
+def stream_agent_task(requirement: str, history: list = []) -> Any:
     workspace_state = WorkspaceState()
+
+    if history:
+        for msg in history:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            workspace_state.add_message(role, content)
+
     workspace_state.add_message("user", requirement)
 
     project_root = os.getenv("CODING_AGENT_PROJECT_ROOT", "projects")
@@ -136,32 +164,38 @@ def stream_agent_task(requirement: str) -> Any:
                     content_str = ""
                     # Extract readable content from LangGraph state updates
                     if isinstance(values, dict):
-                        messages = values.get('messages', [])
+                        messages = values.get("messages", [])
                         # LangGraph sometimes wraps lists in an Overwrite object
-                        if hasattr(messages, 'value'):
+                        if hasattr(messages, "value"):
                             messages = messages.value
-                            
+
                         if messages and isinstance(messages, list):
                             last_msg = messages[-1]
-                            if hasattr(last_msg, 'content'):
+                            if hasattr(last_msg, "content"):
                                 content_str = last_msg.content
-                            elif isinstance(last_msg, dict) and 'content' in last_msg:
-                                content_str = str(last_msg['content'])
+                            elif isinstance(last_msg, dict) and "content" in last_msg:
+                                content_str = str(last_msg["content"])
                             else:
                                 content_str = str(last_msg)
                         elif "memory_contents" in values:
-                             content_str = f"System Memory Context Updated: {list(values['memory_contents'].keys())}"
+                            content_str = f"System Memory Context Updated: {list(values['memory_contents'].keys())}"
                         else:
-                             content_str = f"Internal State Updated: {list(values.keys())}"
+                            content_str = (
+                                f"Internal State Updated: {list(values.keys())}"
+                            )
                     else:
                         content_str = str(values)
 
                     # Limit the length if it's too huge
                     if len(content_str) > 5000:
                         content_str = content_str[:5000] + "...(truncated)"
-                    
+
                     # Yield clean string for frontend
-                    yield {"type": "node", "node_name": node_name, "content": content_str.strip()}
+                    yield {
+                        "type": "node",
+                        "node_name": node_name,
+                        "content": content_str.strip(),
+                    }
         else:
             logger.info("Agent does not support streaming, falling back to invoke()")
             output = agent.invoke(state_dict)
