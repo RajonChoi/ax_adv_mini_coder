@@ -9,6 +9,8 @@ of the coding workflow: planning, implementation, and review.
 from re import S
 from typing import Any, List
 
+from httpx import get
+
 from ._llm import get_llm
 from .config import (
     backend_factory,
@@ -233,36 +235,32 @@ def create_dynamic_subagent(name: str, description: str, system_prompt: str) -> 
     return agent
 
 
-def call_dynamic_subagent(name: str, description: str, system_prompt: str, task: str) -> str:
+def call_dynamic_subagent(name: str, system_prompt: str, task: str) -> str:
     """
-    Instantiate a new SubAgent dynamically and immediately delegate a task to it.
-    Use this tool when you need a specific type of worker (e.g., 'DataAnalyst') that isn't provided.
+    Simpler, lighter version: Instantiates a direct LLM call instead of a full Agent Graph.
 
     Args:
         name: e.g., 'coder-data-analyst'
-        description: e.g., 'Analyzes local CSV files'
         system_prompt: Detailed role prompt for the agent
         task: The specific goal for the dynamic agent to achieve
     """
-    from deepagents.graph import create_deep_agent
-    from .state_models import WorkspaceState
+    # 프로젝트 환경에 맞게 LLM 객체를 가져오는 모듈을 임포트하세요.
+    # 예시: from langchain_openai import ChatOpenAI
+    from langchain_core.messages import SystemMessage, HumanMessage
 
-    spec = create_dynamic_subagent(name, description, system_prompt)
-    agent = create_deep_agent(**spec)
+    # 1. LLM 초기화 (기존 프로젝트 설정에 맞춰 수정 필요)
+    llm = get_llm("small_qwen")  # 모델 이름은 필요에 따라 조정하세요.
 
-    ws = WorkspaceState()
-    ws.add_message("user", task)
-
-    state_dict = {
-        "messages": ws.messages,
-        "input": task,
-        "current_workspace_state": ws.current_workspace_state,
-        "error_logs": ws.error_logs,
-    }
+    # 2. 메시지 구성 (역할 부여 + 작업 지시)
+    messages = [
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=task)
+    ]
 
     try:
-        output = agent.invoke(state_dict)
-        return f"Dynamic SubAgent [{name}] Result:\n{output}"
+        # 3. 에이전트 그래프를 타지 않고 직접 호출
+        response = llm.invoke(messages)
+        return f"Dynamic SubAgent [{name}] Result:\n{response.content}"
     except Exception as e:
         return f"Dynamic SubAgent [{name}] Failed:\n{str(e)}"
 

@@ -12,6 +12,4 @@ wheels/
 .env
 .vscode
 
-postgres_data/
-projects/
 test_or.py

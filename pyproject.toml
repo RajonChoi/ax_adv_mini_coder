@@ -13,4 +13,5 @@ dependencies = [
     "psycopg2-binary>=2.9.9",
     "langchain-openai>=1.1.12",
     "langfuse>=4.0.6",
+    "litellm[proxy]>=1.83.0",
 ]

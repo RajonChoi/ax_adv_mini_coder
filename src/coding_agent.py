@@ -50,6 +50,7 @@ SYSTEM_PROMPT = """
 
 ### Exceptions:
 - User send simple messages(under 20 characters), you can answer directly without subagents.
+- You can use simple_coder subagent for small code changes or quick fixes without planning or todo list.
 - User can call subagent directly via `call_dynamic_subagent` tool if they want to delegate specific tasks to a specialized agent.
 - Also user can call subagents in your reasoning process, then you should run only that subagent to complete the specific task.
 
@@ -250,6 +251,8 @@ def stream_agent_task(requirement: str, history: list = []) -> Any:
     logger.info(f"DEBUG: is_complex = {is_complex}")
 
     # Prepare final response message
+    # Keep a verbose assistant reply for multi-turn context even when UI shows a fixed completion message.
+    history_response = str(final_response) if final_response is not None else ""
     if is_complex:
         # 코딩 작업 완료시 메시지
         response_message = (
@@ -263,4 +266,5 @@ def stream_agent_task(requirement: str, history: list = []) -> Any:
         "type": "end",
         "response_type": "complex" if is_complex else "simple",
         "final_response": response_message,
+        "history_response": history_response or response_message,
     }

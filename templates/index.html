@@ -79,6 +79,7 @@
         const submitBtn = document.getElementById('submitBtn');
         const logsContainer = document.getElementById('logsContainer');
         const statusBadge = document.getElementById('statusBadge');
+        const COMPLEX_DONE_MESSAGE = '☑️ 작업완료!\n📂projects/ 폴더를 확인하세요.';
 
         function appendMessage(role, content) {
             const div = document.createElement('div');
@@ -86,6 +87,21 @@
             div.textContent = content;
             chatHistoryBox.appendChild(div);
             chatHistoryBox.scrollTop = chatHistoryBox.scrollHeight;
+        }
+
+        function isMiddlewareNode(nodeName) {
+            return typeof nodeName === 'string' && nodeName.toLowerCase().includes('middleware');
+        }
+
+        function isComplexNodeHint(content) {
+            if (typeof content !== 'string') return false;
+            const c = content.toLowerCase();
+            return (
+                c.includes('todo') ||
+                c.includes('plan') ||
+                c.includes('code') ||
+                c.includes('review')
+            );
         }
 
         taskInput.addEventListener('keydown', (e) => {
@@ -108,6 +124,8 @@
 
             let responseType = 'complex';
             let finalResponse = '';
+            let historyResponse = '';
+            let observedComplexNode = false;
 
             try {
                 const response = await fetch('/api/execute', {
@@ -131,7 +149,6 @@
 
                     // 완전하지 않은 청크 보관
                     accumulatedData = lines.pop();
-
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
                             const jsonStr = line.substring(6);
@@ -144,6 +161,13 @@
                                 if (event.type === 'end') {
                                     responseType = event.response_type || 'complex';
                                     finalResponse = event.final_response || '';
+                                    historyResponse = event.history_response || '';
+                                } else if (
+                                    event.type === 'node' &&
+                                    !isMiddlewareNode(event.node_name) &&
+                                    isComplexNodeHint(event.content)
+                                ) {
+                                    observedComplexNode = true;
                                 }
 
                                 renderLogEvent(event);
@@ -154,20 +178,44 @@
                     }
                 }
 
+                // Some servers may close without trailing '\n\n' for the last event.
+                const tail = accumulatedData.trim();
+
+                if (tail.startsWith('data: ')) {
+                    try {
+                        const tailEvent = JSON.parse(tail.substring(6));
+
+                        if (tailEvent.type === 'end') {
+                            responseType = tailEvent.response_type || 'complex';
+                            finalResponse = tailEvent.final_response || '';
+                            historyResponse = tailEvent.history_response || '';
+                        } else if (
+                            tailEvent.type === 'node' &&
+                            !isMiddlewareNode(tailEvent.node_name) &&
+                            isComplexNodeHint(tailEvent.node_name)
+                        ) {
+                            observedComplexNode = true;
+                        }
+
+                        renderLogEvent(tailEvent);
+                    } catch (e) {
+                        console.error("SSE tail 파싱 에러:", e, tail);
+                    }
+                }
+
                 // 작업 완료 후 처리
                 chatHistory.push({ role: 'user', content: task });
 
                 // 응답 타입에 따른 분기 (요청 사항 반영)
-                if (responseType === 'simple') {
-                    // simple: 로그창을 비우고 좌측 채팅창에 답변 표시
-                    logsContainer.innerHTML = '<div style="color: #666; font-style: italic;">간단한 응답이 처리되었습니다.</div>';
-                    chatHistory.push({ role: 'assistant', content: finalResponse });
-                    appendMessage('assistant', finalResponse);
+                const isComplexTask = responseType === 'complex' || observedComplexNode;
+                if (isComplexTask) {
+                    const assistantHistory = historyResponse || finalResponse || COMPLEX_DONE_MESSAGE;
+                    chatHistory.push({ role: 'assistant', content: assistantHistory });
+                    appendMessage('assistant', COMPLEX_DONE_MESSAGE);
                 } else {
-                    // complex: 우측 로그창은 그대로 두고, 좌측 채팅창에 '작업이 완료되었습니다.' 출력
-                    const doneMessage = "작업이 완료되었습니다.";
-                    chatHistory.push({ role: 'assistant', content: doneMessage });
-                    appendMessage('assistant', doneMessage);
+                    const simpleResponse = historyResponse || finalResponse || '요청을 처리했습니다.';
+                    chatHistory.push({ role: 'assistant', content: simpleResponse });
+                    appendMessage('assistant', simpleResponse);
                 }
 
             } catch (error) {
@@ -181,6 +229,10 @@
         });
 
         function renderLogEvent(event) {
+            if (event.type === 'node' && isMiddlewareNode(event.node_name)) {
+                return;
+            }
+
             const div = document.createElement('div');
             div.className = 'log-node';
 

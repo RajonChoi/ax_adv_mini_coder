@@ -44,7 +44,6 @@ services:
     container_name: jrue-coder-minio
     restart: always
     entrypoint: sh
-    # start minio and auto-create the 'langfuse' bucket
     command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
     environment:
       - MINIO_ROOT_USER=minio
@@ -73,17 +72,14 @@ services:
       - SALT=mysalt_key_change_me
       - ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000
       - TELEMETRY_ENABLED=false
-      # Clickhouse 설정
       - CLICKHOUSE_MIGRATION_URL=clickhouse://clickhouse:9000
       - CLICKHOUSE_URL=http://clickhouse:8123
       - CLICKHOUSE_USER=clickhouse
       - CLICKHOUSE_PASSWORD=clickhouse
       - CLICKHOUSE_CLUSTER_ENABLED=false
-      # Redis 설정
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_AUTH=myredissecret
-      # MinIO (S3) 설정
       - LANGFUSE_S3_EVENT_UPLOAD_BUCKET=langfuse
       - LANGFUSE_S3_EVENT_UPLOAD_REGION=auto
       - LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID=minio
@@ -106,17 +102,14 @@ services:
       - SALT=mysalt_key_change_me
       - ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000
       - TELEMETRY_ENABLED=false
-      # Clickhouse 설정
       - CLICKHOUSE_MIGRATION_URL=clickhouse://clickhouse:9000
       - CLICKHOUSE_URL=http://clickhouse:8123
       - CLICKHOUSE_USER=clickhouse
       - CLICKHOUSE_PASSWORD=clickhouse
       - CLICKHOUSE_CLUSTER_ENABLED=false
-      # Redis 설정
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_AUTH=myredissecret
-      # MinIO (S3) 설정
       - LANGFUSE_S3_EVENT_UPLOAD_BUCKET=langfuse
       - LANGFUSE_S3_EVENT_UPLOAD_REGION=auto
       - LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID=minio
@@ -124,7 +117,31 @@ services:
       - LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT=http://minio:9000
       - LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE=true
 
-  # 7. Web App (jrue-coder)
+  # 7. LiteLLM Proxy Server (OpenRouter / OpenAI 라우팅 및 폴백)
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: jrue-coder-litellm
+    restart: always
+    depends_on:
+      - langfuse # 로깅을 위해 langfuse가 먼저 뜨도록 보장
+      - db
+    ports:
+      - "4000:4000"
+    volumes:
+      # 호스트의 lite_llm_config.yaml 파일을 컨테이너 내부로 마운트
+      - ./lite_llm_config.yaml:/app/config.yaml
+    command: [ "--config", "/app/config.yaml", "--port", "4000" ]
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:-}
+      # LiteLLM에서 Langfuse로 로그를 쏘기 위한 환경변수 (도커 내부 네트워크 사용)
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
+      - LANGFUSE_HOST=http://langfuse:3000
+      - DATABASE_URL=postgresql://jrue_coder:jrue_coder@db:5432/jrue_coder?schema=litellm
+
+  # 8. Web App (jrue-coder)
   jrue-coder:
     build:
       context: .
@@ -133,19 +150,23 @@ services:
     depends_on:
       - langfuse
       - langfuse-worker
+      - litellm
     ports:
       - "5000:5000"
     volumes:
       - .:/app
       - ./projects:/projects
     environment:
-      # .env 파일에서 가져오되, 없으면 빈 값
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:-}
+      - LITELLM_API_KEY=${LITELLM_API_KEY:-}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
       - LANGFUSE_BASE_URL=http://langfuse:3000
       - CODING_AGENT_PROJECT_ROOT=/projects
       - DATABASE_URL=postgresql://jrue_coder:jrue_coder@db:5432/jrue_coder
+      # 앱에서 LLM 호출 시 바라볼 엔드포인트를 내부 도커 네트워크의 LiteLLM으로 지정
+      - LITELLM_BASE_URL=http://litellm:4000/v1
 
 volumes:
   postgres_data:

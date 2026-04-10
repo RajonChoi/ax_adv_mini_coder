@@ -1,0 +1,23 @@
+model_list:
+  - model_name: "openrouter/*"
+    litellm_params:
+      model: "openrouter/*"
+      api_key: "os.environ/OPENROUTER_API_KEY"
+
+  - model_name: fallback-gpt
+    litellm_params:
+      model: openai/gpt-5.4-mini # 필요에 따라 gpt-3.5-turbo 또는 gpt-4o 등으로 변경
+      api_key: "os.environ/OPENAI_API_KEY"
+
+general_settings:
+  master_key: "os.environ/LITELLM_MASTER_KEY"
+
+litellm_settings:
+  default_fallbacks:
+    - fallback-gpt
+  num_retries: 1
+  request_timeout: 15
+  success_callback: ["langfuse"]
+  failure_callback: ["langfuse"]
+  drop_params: true
+  telemetry: false
