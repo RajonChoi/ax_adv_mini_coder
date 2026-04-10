@@ -55,17 +55,19 @@ Browser UI (Flask Template)
 
 ## 4) 시작
 
+### 사전 준비
+
+- Docker / Docker Compose
+- OpenRouter API Key
+- install python 3.13 && uv
+
 ### oneshot script
 아래 명령 실행 후 가이드 때로 진행하면 서비스가 실행됩니다.
 ```bash
 bash oneshot_setup.sh
 ```
 
-### 사전 준비
-
-- Docker / Docker Compose
-- OpenRouter API Key
-- install python 3.13 && uv
+### 실행 (without script)
 
 ```bash
 uv sync
