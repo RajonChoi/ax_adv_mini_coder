@@ -37,7 +37,7 @@ def get_llm(model_name: str) -> ChatOpenAI:
             api_key=litellm_api_key,
             max_retries=0,
         )
-
+        llm.bind(max_tokens=1).invoke("Connection check")  # Quick connectivity test to make Exception
         llm.callbacks = [CallbackHandler()]
 
         return llm

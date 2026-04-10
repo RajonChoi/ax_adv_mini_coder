@@ -6,10 +6,7 @@ used by the Coding AI Agent. Each subagent is responsible for a specific phase
 of the coding workflow: planning, implementation, and review.
 """
 
-from re import S
-from typing import Any, List
-
-from httpx import get
+from typing import  List
 
 from ._llm import get_llm
 from .config import (

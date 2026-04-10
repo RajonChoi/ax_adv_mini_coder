@@ -53,16 +53,22 @@ Browser UI (Flask Template)
 └── projects/                   # 에이전트 산출물 저장 디렉토리
 ```
 
-## 4) 시작 (권장: Docker Compose)
+## 4) 시작
 
 ### 사전 준비
 
 - Docker / Docker Compose
-- OpenRouter API Key (필수)
+- OpenRouter API Key
+- install python 3.13 && uv
 
-### `.env` 작성
+```bash
+uv sync
+cp .env.example .env
+```
 
-프로젝트 루트에 `.env` 파일을 만들고 아래 값을 채워주세요.
+- `.env` 작성
+  > 프로젝트 루트의 `.env` 파일에 아래 값을 채워주세요.
+
 ```bash
 OPENROUTER_BASE_URL="https://openrouter.ai/api/v1"
 OPENROUTER_API_KEY=...
