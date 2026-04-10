@@ -1,9 +1,14 @@
 # Coding Agent
 
-DeepAgents 기반 코딩 에이전트를 Flask 웹 UI로 감싼 프로젝트입니다.
-사용자가 자연어로 작업을 요청하면 에이전트가 `projects/` 워크스페이스를 기준으로 계획/구현/검토를 수행하고, 진행 로그를 실시간(SSE)으로 스트리밍합니다.
+DeepAgents 기반 코딩 에이전트를 Flask 웹 UI로 감싼 프로젝트입니다.<br><br>
+사용자가 자연어로 작업을 요청하면 에이전트가<br>
+`projects/` 워크스페이스를 기준으로 계획/구현/검토를 수행하고,
+<br>
+진행 로그를 실시간(SSE)으로 스트리밍합니다.
 
 ## 1) 주요 기능
+
+Chat을 통해 코드를 생성합니다.
 
 - DeepAgents 오케스트레이션
 - SubAgent 구성
@@ -59,7 +64,9 @@ Browser UI (Flask Template)
 
 프로젝트 루트에 `.env` 파일을 만들고 아래 값을 채워주세요.
 ```bash
+OPENROUTER_BASE_URL="https://openrouter.ai/api/v1"
 OPENROUTER_API_KEY=...
+
 OPENAI_API_KEY=...                 # fallback-gpt 사용 시 필요
 
 LITELLM_MASTER_KEY=...
@@ -78,15 +85,16 @@ docker compose up -f docker-compose.yml -d --build
 - Langfuse: `http://localhost:3000`
 - LiteLLM Proxy: `http://localhost:4000`
 - App UI: `http://localhost:5000`
+  > AI Chat Service
 
 
 ### `.env` 업데이트
-
+아래 항목 추가 입력
 - Langfuse 접속하여 계정, oraganization/project 및 API Key 생성
 - LiteLLM > ui에 접속하여 API Key 생성
 
 ```bash
-LITELLM_API_KEY=...                # 선택 (없으면 MASTER_KEY/OPENROUTER 순으로 fallback)
+LITELLM_API_KEY=...
 
 LANGFUSE_PUBLIC_KEY=...
 LANGFUSE_SECRET_KEY=...
